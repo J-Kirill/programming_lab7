@@ -24,7 +24,7 @@ public class DatabaseManager implements DatabaseCommands {
     public static DatabaseManager getInstance() throws IOException {
         if (instance == null) {
             Properties props = new Properties();
-            props.load(new FileInputStream(".\\config.properties"));
+            props.load(new FileInputStream("./config.properties"));
             URL = props.getProperty("URL");
             USER = props.getProperty("USER");
             PASSWORD = props.getProperty("PASSWORD");
