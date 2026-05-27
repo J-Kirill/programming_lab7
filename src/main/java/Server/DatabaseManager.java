@@ -8,6 +8,8 @@ import common.stored.Location;
 import common.stored.Route;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DatabaseManager implements DatabaseCommands {
     private static final String URL = "jdbc:postgresql://localhost:5432/studs";
@@ -34,6 +36,52 @@ public class DatabaseManager implements DatabaseCommands {
     }
     public boolean deleteById(long id, String ownerLogin) throws SQLException{
         return deleteRoute(id, ownerLogin);
+    }
+    @Override
+    public int deleteAllByOwner(String ownerLogin) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = DatabaseManager.getConnection();
+            conn.setAutoCommit(false);
+
+            String selectSql = """
+            SELECT coordinate_id, from_id, to_id
+            FROM Routes WHERE owner_login = ?
+        """;
+
+            List<Long> coordIds = new ArrayList<>();
+            List<Long> locationIds = new ArrayList<>();
+
+            try (PreparedStatement stmt = conn.prepareStatement(selectSql)) {
+                stmt.setString(1, ownerLogin);
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    coordIds.add(rs.getLong("coordinate_id"));
+                    locationIds.add(rs.getLong("from_id"));
+                    Long toId = (Long) rs.getObject("to_id");
+                    if (toId != null) locationIds.add(toId);
+                }
+            }
+
+            int deleted;
+            String deleteSql = "DELETE FROM Routes WHERE owner_login = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteSql)) {
+                stmt.setString(1, ownerLogin);
+                deleted = stmt.executeUpdate();
+            }
+
+            for (Long id : coordIds)    deleteIfUnused(conn, "coordinates", "coordinate_id", id);
+            for (Long id : locationIds) deleteIfUnused(conn, "locations",   "location_id",   id);
+
+            conn.commit();
+            return deleted;
+
+        } catch (SQLException e) {
+            if (conn != null) conn.rollback();
+            throw e;
+        } finally {
+            if (conn != null) conn.close();
+        }
     }
 
     public static MetaHashSet<Route> loadAll() throws InvalidData {

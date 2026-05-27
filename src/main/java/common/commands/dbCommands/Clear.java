@@ -1,6 +1,6 @@
-package common.commands;
+package common.commands.dbCommands;
 
-import common.commands.dbCommands.DatabaseCommands;
+import common.commands.Command;
 import common.MetaHashSet;
 import common.stored.CArgs;
 import common.stored.Request;
