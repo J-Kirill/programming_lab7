@@ -17,8 +17,10 @@ public class Clear implements Command {
         CArgs args = request.cArgs();
         Route route = request.route();
         try {
-            collection.clear();
-            return new Response("Успешно очищено", true);
+            String ownerLogin = request.login();
+            int deleted = dbCommands.deleteAllByOwner(ownerLogin);
+            collection.removeIf(r -> r.getOwner().equals(ownerLogin));
+            return new Response("Удалено маршрутов: " + deleted, true);
         } catch (Exception e) {
             return new Response(e.getMessage(), false);
         }

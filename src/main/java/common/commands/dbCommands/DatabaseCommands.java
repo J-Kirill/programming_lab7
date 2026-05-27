@@ -8,4 +8,5 @@ public interface DatabaseCommands {
     Long insert(Route route, String ownerLogin) throws SQLException;
     boolean updateById(long id, Route newRoute, String ownerLogin) throws SQLException;
     boolean deleteById(long id, String ownerLogin) throws SQLException;
+    int deleteAllByOwner(String ownerLogin) throws SQLException;
 }
