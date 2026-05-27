@@ -28,83 +28,84 @@ public class MetaHashSet<E> implements Set<E> {
         this.createdAt = ZonedDateTime.now();
     }
 
-    public Class<E> getType() {
+    public synchronized Class<E> getType() {
         return type;
     }
 
-    public ZonedDateTime getCreatedAt() {
+    public synchronized ZonedDateTime getCreatedAt() {
         return createdAt;
     }
 
     @Override
-    public boolean add(E e) {
+    public synchronized boolean add(E e) {
         return delegate.add(e);
     }
 
     @Override
-    public int size() {
+    public synchronized int size() {
         return delegate.size();
     }
 
     @Override
-    public boolean contains(Object o) {
+    public synchronized boolean contains(Object o) {
         return delegate.contains(o);
     }
 
     @Override
-    public boolean remove(Object o) {
+    public synchronized boolean remove(Object o) {
         return delegate.remove(o);
     }
 
     @Override
-    public boolean containsAll(Collection<?> c) {
+    public synchronized boolean containsAll(Collection<?> c) {
         return delegate.containsAll(c);
     }
 
     @Override
-    public boolean addAll(Collection<? extends E> c) {
-        return false;
+    public synchronized boolean addAll(Collection<? extends E> c) {
+        return delegate.addAll(c);
     }
 
     @Override
-    public boolean isEmpty() {
+    public synchronized boolean isEmpty() {
         return delegate.isEmpty();
     }
 
     @Override
-    public boolean retainAll(Collection<?> c) {
+    public synchronized boolean retainAll(Collection<?> c) {
         return delegate.retainAll(c);
     }
 
     @Override
-    public boolean removeAll(Collection<?> c) {
+    public synchronized boolean removeAll(Collection<?> c) {
         return delegate.removeAll(c);
     }
 
     @Override
-    public void clear() {
+    public synchronized void clear() {
         delegate.clear();
     }
 
     @Override
-    public Iterator<E> iterator() {
-        return delegate.iterator();
+    public synchronized Iterator<E> iterator() {
+        return new HashSet<>(delegate).iterator();
     }
 
     @Override
-    public Object[] toArray() {
+    public synchronized Object[] toArray() {
         return delegate.toArray();
     }
 
     @Override
-    public <T> T[] toArray(T[] a) {
+    public synchronized <T> T[] toArray(T[] a) {
         return delegate.toArray(a);
     }
 
-    public static String toString(MetaHashSet<Route> collection) {
+    public synchronized String toString() {
         StringBuilder out = new StringBuilder();
         out.append("[ ");
-        for (Route route : collection) {
+        for (Object object : this) {
+            Route route = (Route) object;
             out.append("\n");
             out.append(route.toString(1));
             out.append(",");
@@ -113,13 +114,15 @@ public class MetaHashSet<E> implements Set<E> {
         out.append("\n]");
         return out.toString();
     }
-    public static int[] compareTo(Collection<Route> collection, Route route) {
-        int[] vals = new int[collection.size()];
-        int i = 0;
-        for (Route route1 : collection) {
-            vals[i++] = route.compareTo(route1);
+    public static int[] compareTo(MetaHashSet<Route> collection, Route route) {
+        synchronized (collection) {
+            int[] vals = new int[collection.delegate.size()];
+            int i = 0;
+            for (Route route1 : collection.delegate) {
+                vals[i++] = route.compareTo(route1);
+            }
+            return vals;
         }
-        return vals;
     }
 }
 

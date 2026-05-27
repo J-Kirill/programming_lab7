@@ -7,18 +7,27 @@ import common.stored.Coordinates;
 import common.stored.Location;
 import common.stored.Route;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 public class DatabaseManager implements DatabaseCommands {
-    private static final String URL = "jdbc:postgresql://localhost:5432/studs";
-    private static final String USER = "postgres";
-    private static final String PASSWORD = "2012";
+    private static String URL;
+    private static String USER;
+    private static String PASSWORD;
 
     private static DatabaseManager instance;
-    public static DatabaseManager getInstance() {
+    public static DatabaseManager getInstance() throws IOException {
         if (instance == null) {
+            Properties props = new Properties();
+            props.load(new FileInputStream("C:\\Users\\unc4c\\OneDrive\\Рабочий стол\\Учёба\\2 Семестр\\Прога\\lab7\\tests\\config.properties"));
+            URL = props.getProperty("URL");
+            USER = props.getProperty("USER");
+            PASSWORD = props.getProperty("PASSWORD");
             instance = new DatabaseManager();
         }
         return instance;
@@ -84,7 +93,7 @@ public class DatabaseManager implements DatabaseCommands {
         }
     }
 
-    public static MetaHashSet<Route> loadAll() throws InvalidData {
+    public MetaHashSet<Route> loadAll() throws InvalidData {
         MetaHashSet<Route> collection = new MetaHashSet<>(Route.class);
         String sql = """
                 SELECT

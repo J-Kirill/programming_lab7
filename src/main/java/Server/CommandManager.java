@@ -16,7 +16,7 @@ import java.util.Deque;
 import java.util.Scanner;
 
 public class CommandManager {
-    public static Response handle(Request request) {
+    public static Response handle(Request request) throws Exception {
         try {
             if (!authenticate(request.login(), request.password())) {
                 return new Response("Неверный логин или пароль", false);

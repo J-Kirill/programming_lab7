@@ -13,6 +13,7 @@ import java.nio.channels.SocketChannel;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.Scanner;
+import java.util.concurrent.*;
 
 public class TCPServer {
     private final ServerSocketChannel serverChannel;
@@ -20,19 +21,19 @@ public class TCPServer {
     private final Scanner scanner;
     private boolean running = true;
 
-    public TCPServer() throws IOException{
-        this(11280);
-    }
+    private final ExecutorService readPool   = Executors.newFixedThreadPool(4);
+    private final ExecutorService handlePool = Executors.newFixedThreadPool(4);
+    private final ForkJoinPool sendPool   = new ForkJoinPool(4);
+
+    public TCPServer() throws IOException { this(11280); }
+
     public TCPServer(int port) throws IOException {
         this.scanner = new Scanner(System.in);
-
         serverChannel = ServerSocketChannel.open();
         serverChannel.configureBlocking(false);
         serverChannel.bind(new InetSocketAddress(port));
-
         selector = Selector.open();
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
-
         System.out.println("Server started on port " + port);
     }
 
@@ -41,6 +42,9 @@ public class TCPServer {
             checkNetwork();
             checkConsole();
         }
+        readPool.shutdown();
+        handlePool.shutdown();
+        sendPool.shutdown();
     }
 
     private void checkNetwork() throws IOException {
@@ -51,19 +55,14 @@ public class TCPServer {
         while (iter.hasNext()) {
             SelectionKey key = iter.next();
             iter.remove();
-
-            if (key.isAcceptable()) {
-                handleAccept();
-            } else if (key.isReadable()) {
-                handleRead(key);
-            }
+            if (key.isAcceptable()) handleAccept();
+            else if (key.isReadable()) handleRead(key);
         }
     }
 
     private void handleAccept() throws IOException {
         SocketChannel clientChannel = serverChannel.accept();
         if (clientChannel == null) return;
-
         clientChannel.configureBlocking(false);
         clientChannel.register(selector, SelectionKey.OP_READ);
         System.out.println("Client connected: " + clientChannel.getRemoteAddress());
@@ -71,25 +70,53 @@ public class TCPServer {
 
     private void handleRead(SelectionKey key) {
         SocketChannel clientChannel = (SocketChannel) key.channel();
+
+        final byte[] data;
         try {
-            byte[] data = readBytes(clientChannel);
+            data = readBytes(clientChannel);
             if (data == null) {
                 System.out.println("Client disconnected");
                 key.cancel();
                 clientChannel.close();
                 return;
             }
-
-            Request request = deserialize(data);
-            Response response = CommandManager.handle(request);
-            sendResponse(clientChannel, response);
-
-        } catch (IOException | ClassNotFoundException e) {
-            System.err.println("Error handling client: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("Read error: " + e.getMessage());
             key.cancel();
             try { clientChannel.close(); } catch (IOException ignored) {}
+            return;
         }
+
+        // 1. readPool — десериализация запроса
+        readPool.submit(() -> {
+            try {
+                Request request = deserialize(data);
+
+                // 2. handlePool — выполнение команды
+                handlePool.submit(() -> {
+                    try {
+                        Response response = CommandManager.handle(request);
+
+                        // 3. sendPool — отправка ответа
+                        sendPool.submit(() -> {
+                            try {
+                                sendResponse(clientChannel, response);
+                            } catch (IOException e) {
+                                System.err.println("Send error: " + e.getMessage());
+                            }
+                        });
+
+                    } catch (Exception e) {
+                        System.err.println("Handle error: " + e.getMessage());
+                    }
+                });
+
+            } catch (IOException | ClassNotFoundException e) {
+                System.err.println("Deserialize error: " + e.getMessage());
+            }
+        });
     }
+
 
     private byte[] readBytes(SocketChannel channel) throws IOException {
         ByteBuffer lenBuf = ByteBuffer.allocate(4);

@@ -17,7 +17,7 @@ public class Show implements Command {
         CArgs args = request.cArgs();
         Route route = request.route();
         try {
-            String line = MetaHashSet.toString(collection);
+            String line = collection.toString();
             return new Response(line, true);
         } catch (Exception e) {
             return new Response(e.getMessage(), false);
